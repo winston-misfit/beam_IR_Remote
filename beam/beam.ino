@@ -9,12 +9,24 @@
  */
 
 #include <math.h>
+#include <IRremote.h>
 
 /*
  * Pre-define constant
  */
 int led = 13;
 int light_control = 20;
+
+IRsend irsend;
+
+unsigned int rawCodes[RAWBUF]; 
+int codeLen = 0;
+
+void setup()
+{
+  Serial.begin(9600);
+  pinMode(led, OUTPUT);
+}
 
 /*
  * check light sensor
@@ -43,6 +55,8 @@ void do_on_light_changed(bool is_dark) {
   {
     Serial.println("Turn off....");
     digitalWrite(led, LOW); 
+
+    turn_off_AC();
   }
   else
   {
@@ -51,12 +65,17 @@ void do_on_light_changed(bool is_dark) {
   }
 }
 
-void setup() {
-  Serial.begin(9600);
-  pinMode(led, OUTPUT);  
+void sendCode(int repeat) {
+  irsend.sendRaw(rawCodes, codeLen, 38);
+  Serial.println("Sent raw");
+}
+
+void turn_off_AC() {
+  digitalWrite(led, HIGH);
+  sendCode(0);
+  digitalWrite(led, LOW);
 }
 
 void loop() {
   loop_light_sensor(1000);
 }
-
