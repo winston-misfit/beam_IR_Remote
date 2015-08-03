@@ -10,6 +10,8 @@
 
 #include <math.h>
 #include <IRremote.h>
+#include <Time.h>
+#include <TimeAlarms.h>
 
 /*
  * Pre-define constant
@@ -19,10 +21,16 @@ int light_control = 20;
 
 IRsend irsend;
 
+#define TIME_HEADER  "T"   // Header tag for serial time sync message
+#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
+
 void setup()
 {
   Serial.begin(9600);
+  while (!Serial) ; // Needed for Leonardo only
   pinMode(led, OUTPUT);
+  setSyncProvider( requestSync);  //set function to call when sync required
+  Serial.println("Waiting for sync message");
 }
 
 /*
@@ -36,7 +44,7 @@ int ac_statue = 0;  // Off default
 /*
  * check light sensor
  */
-void loop_light_sensor(int interval) {
+void loop_light_sensor() {
   int sensorValue = analogRead(A0);
   float f_brightness;
   f_brightness=(float)(1023-sensorValue)*10/sensorValue;
@@ -51,9 +59,6 @@ void loop_light_sensor(int interval) {
     Serial.print(f_brightness, 1);
     Serial.println("!!!");
   }
-
-  // sleep for a while  
-  delay(interval);
 }
 
 /*
@@ -82,16 +87,75 @@ void sendCode(unsigned int* rawCodes, int codeLen) {
 }
 
 void turn_off_AC() {
+  Serial.println("turn AC off");  
   digitalWrite(led, HIGH);
   sendCode(off_commands, sizeof(off_commands) / sizeof(int));
   digitalWrite(led, LOW);
 }
 
 void turn_on_AC() {
+  Serial.println("turn AC on");  
   digitalWrite(led, HIGH);
   sendCode(on_commands, sizeof(on_commands) / sizeof(int));
   digitalWrite(led, LOW);
 }
+
+int midnightAlarmId = -1;
+
+void setupAlarm() {
+  if (midnightAlarmId != -1) {
+    Alarm.disable(midnightAlarmId);
+  }
+  midnightAlarmId = Alarm.alarmRepeat(23,59,59,turn_off_AC);
+}
+
+void processSyncMessage() {
+  unsigned long pctime;
+  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
+
+  if(Serial.find(TIME_HEADER)) {
+     pctime = Serial.parseInt();
+     if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+       setTime(pctime); // Sync Arduino clock to the time received on the serial port
+       setupAlarm();
+     }
+  }
+}
+
+time_t requestSync()
+{
+  Serial.write(TIME_REQUEST);  
+  return 0; // the time will be sent later in response to serial mesg
+}
+
+void digitalClockDisplay()
+{
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.println(); 
+}
+
+void printDigits(int digits)
+{
+  Serial.print(":");
+  if(digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
+
+void loop_clock_sync() {
+  if (Serial.available()) {
+    processSyncMessage();
+  }
+  if (timeStatus()!= timeNotSet) {
+    digitalClockDisplay();  
+  }
+}
+
 void loop() {
-  loop_light_sensor(1000);
+  loop_clock_sync();
+  loop_light_sensor();
+  Alarm.delay(1000);
 }
