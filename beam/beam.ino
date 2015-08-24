@@ -13,13 +13,22 @@
 #include <Time.h>
 #include <TimeAlarms.h>
 
+#include <SPI.h>
+#include "Adafruit_BLE_UART.h"
+
 /*
  * Pre-define constant
  */
-int led = 13;
+int led = 0;
 int light_control = 20;
 
+#define ADAFRUITBLE_REQ 10
+#define ADAFRUITBLE_RDY 2   
+#define ADAFRUITBLE_RST 8
+
 IRsend irsend;
+
+Adafruit_BLE_UART BTLEserial = Adafruit_BLE_UART(ADAFRUITBLE_REQ, ADAFRUITBLE_RDY, ADAFRUITBLE_RST);
 
 #define TIME_HEADER  "T"   // Header tag for serial time sync message
 #define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
@@ -31,13 +40,17 @@ void setup()
   pinMode(led, OUTPUT);
   setSyncProvider( requestSync);  //set function to call when sync required
   Serial.println("Waiting for sync message");
+
+  BTLEserial.begin();
 }
 
 /*
  *  AC controller information mapping
  */
-unsigned int off_commands[] = {3470, 1560, 550, 1150, 540, 1120, 540, 300, 550, 280, 570, 260, 590, 1110, 540, 300, 550, 260, 590, 1100, 550, 1150, 550, 280, 560, 1120, 540, 300, 550, 290, 550, 1130, 530, 1150, 530, 320, 530, 1130, 530, 1160, 500, 330, 520, 320, 520, 1160, 510, 340, 490, 330, 520, 1160, 490, 360, 490, 360, 450, 380, 460, 390, 430, 410, 400, 450, 380, 450, 380, 470, 340, 510, 340, 490, 320, 530, 310, 530, 300, 550, 280, 550, 300, 550, 290, 560, 270, 550, 280, 560, 290, 550, 300, 550, 270, 1400, 280, 550, 300, 550, 290, 1380, 300, 1380, 300, 550, 290, 560, 270, 550, 290, 550, 290, 550, 300, 550, 290, 1380, 280, 550, 300, 1400, 270, 550, 300, 540, 290, 550, 300, 550, 280, 560, 280, 550, 290, 1390, 300, 550, 270, 560, 290, 550, 280, 550, 300, 550, 300, 550, 270, 550, 290, 560, 280, 550, 300, 550, 290, 560, 270, 550, 280, 560, 290, 550, 300, 550, 290, 550, 280, 550, 290, 540, 300, 550, 300, 550, 270, 550, 300, 550, 280, 550, 300, 550, 300, 550, 270, 550, 300, 550, 280, 550, 300, 550, 290, 560, 270, 550, 280, 570, 280, 550, 300, 550, 290, 550, 280, 550, 290, 540, 300, 550, 300, 1370, 300, 1380, 300, 1400, 270, 1400, 280, 1400, 300, 1370, 300, 550, 280, 550, 300};
-unsigned int on_commands[] = {3490, 1550, 540, 1130, 560, 1130, 550, 280, 570, 260, 580, 260, 580, 1120, 520, 300, 540, 300, 530, 1160, 520, 1150, 530, 310, 530, 1160, 510, 330, 510, 320, 510, 1170, 500, 1190, 490, 330, 490, 1200, 470, 1220, 440, 400, 400, 450, 390, 1290, 390, 460, 350, 490, 350, 1320, 340, 500, 340, 510, 310, 540, 300, 550, 290, 540, 290, 560, 270, 550, 300, 550, 290, 550, 290, 550, 290, 560, 270, 550, 300, 550, 290, 550, 290, 550, 290, 560, 270, 550, 300, 1380, 300, 550, 280, 560, 280, 1400, 280, 550, 300, 550, 280, 1390, 300, 1380, 300, 550, 280, 550, 290, 550, 290, 550, 290, 550, 300, 550, 270, 1400, 290, 550, 290, 1390, 290, 550, 290, 550, 290, 550, 290, 550, 290, 550, 280, 560, 280, 1400, 290, 550, 290, 550, 290, 550, 280, 550, 290, 550, 290, 560, 290, 550, 290, 540, 290, 550, 290, 550, 290, 550, 300, 550, 280, 560, 280, 550, 290, 550, 290, 550, 300, 550, 270, 550, 300, 550, 290, 550, 290, 550, 290, 560, 280, 550, 290, 550, 290, 550, 290, 550, 290, 560, 270, 560, 270, 570, 280, 560, 290, 550, 290, 560, 280, 550, 290, 550, 280, 550, 300, 550, 300, 550, 280, 550, 290, 1380, 300, 1400, 280, 550, 290, 550, 280, 550, 300, 550, 280, 1400, 290, 550, 280};
+//unsigned int off_commands[] = {3470, 1560, 550, 1150, 540, 1120, 540, 300, 550, 280, 570, 260, 590, 1110, 540, 300, 550, 260, 590, 1100, 550, 1150, 550, 280, 560, 1120, 540, 300, 550, 290, 550, 1130, 530, 1150, 530, 320, 530, 1130, 530, 1160, 500, 330, 520, 320, 520, 1160, 510, 340, 490, 330, 520, 1160, 490, 360, 490, 360, 450, 380, 460, 390, 430, 410, 400, 450, 380, 450, 380, 470, 340, 510, 340, 490, 320, 530, 310, 530, 300, 550, 280, 550, 300, 550, 290, 560, 270, 550, 280, 560, 290, 550, 300, 550, 270, 1400, 280, 550, 300, 550, 290, 1380, 300, 1380, 300, 550, 290, 560, 270, 550, 290, 550, 290, 550, 300, 550, 290, 1380, 280, 550, 300, 1400, 270, 550, 300, 540, 290, 550, 300, 550, 280, 560, 280, 550, 290, 1390, 300, 550, 270, 560, 290, 550, 280, 550, 300, 550, 300, 550, 270, 550, 290, 560, 280, 550, 300, 550, 290, 560, 270, 550, 280, 560, 290, 550, 300, 550, 290, 550, 280, 550, 290, 540, 300, 550, 300, 550, 270, 550, 300, 550, 280, 550, 300, 550, 300, 550, 270, 550, 300, 550, 280, 550, 300, 550, 290, 560, 270, 550, 280, 570, 280, 550, 300, 550, 290, 550, 280, 550, 290, 540, 300, 550, 300, 1370, 300, 1380, 300, 1400, 270, 1400, 280, 1400, 300, 1370, 300, 550, 280, 550, 300};
+//unsigned int on_commands[] = {3490, 1550, 540, 1130, 560, 1130, 550, 280, 570, 260, 580, 260, 580, 1120, 520, 300, 540, 300, 530, 1160, 520, 1150, 530, 310, 530, 1160, 510, 330, 510, 320, 510, 1170, 500, 1190, 490, 330, 490, 1200, 470, 1220, 440, 400, 400, 450, 390, 1290, 390, 460, 350, 490, 350, 1320, 340, 500, 340, 510, 310, 540, 300, 550, 290, 540, 290, 560, 270, 550, 300, 550, 290, 550, 290, 550, 290, 560, 270, 550, 300, 550, 290, 550, 290, 550, 290, 560, 270, 550, 300, 1380, 300, 550, 280, 560, 280, 1400, 280, 550, 300, 550, 280, 1390, 300, 1380, 300, 550, 280, 550, 290, 550, 290, 550, 290, 550, 300, 550, 270, 1400, 290, 550, 290, 1390, 290, 550, 290, 550, 290, 550, 290, 550, 290, 550, 280, 560, 280, 1400, 290, 550, 290, 550, 290, 550, 280, 550, 290, 550, 290, 560, 290, 550, 290, 540, 290, 550, 290, 550, 290, 550, 300, 550, 280, 560, 280, 550, 290, 550, 290, 550, 300, 550, 270, 550, 300, 550, 290, 550, 290, 550, 290, 560, 280, 550, 290, 550, 290, 550, 290, 550, 290, 560, 270, 560, 270, 570, 280, 560, 290, 550, 290, 560, 280, 550, 290, 550, 280, 550, 300, 550, 300, 550, 280, 550, 290, 1380, 300, 1400, 280, 550, 290, 550, 280, 550, 300, 550, 280, 1400, 290, 550, 280};
+unsigned int off_commands[] = {};
+unsigned int on_commands[] = {};
 
 int ac_statue = 0;  // Off default
 
@@ -154,8 +167,65 @@ void loop_clock_sync() {
   }
 }
 
+// BTLE part
+aci_evt_opcode_t laststatus = ACI_EVT_DISCONNECTED;
+
+void loop_BTLESerial() {
+   // Tell the nRF8001 to do whatever it should be working on.
+  BTLEserial.pollACI();
+
+  // Ask what is our current status
+  aci_evt_opcode_t status = BTLEserial.getState();
+  // If the status changed....
+  if (status != laststatus) {
+    // print it out!
+    if (status == ACI_EVT_DEVICE_STARTED) {
+        Serial.println(F("* Advertising started"));
+    }
+    if (status == ACI_EVT_CONNECTED) {
+        Serial.println(F("* Connected!"));
+    }
+    if (status == ACI_EVT_DISCONNECTED) {
+        Serial.println(F("* Disconnected or advertising timed out"));
+    }
+    // OK set the last status change to this one
+    laststatus = status;
+  }
+
+  if (status == ACI_EVT_CONNECTED) {
+    // Lets see if there's any data for us!
+    if (BTLEserial.available()) {
+      Serial.print("* "); Serial.print(BTLEserial.available()); Serial.println(F(" bytes available from BTLE"));
+    }
+    // OK while we still have something to read, get a character and print it out
+    while (BTLEserial.available()) {
+      char c = BTLEserial.read();
+      Serial.print(c);
+    }
+
+    // Next up, see if we have any data to get from the Serial console
+
+    if (Serial.available()) {
+      // Read a line from Serial
+      Serial.setTimeout(100); // 100 millisecond timeout
+      String s = Serial.readString();
+
+      // We need to convert the line to bytes, no more than 20 at this time
+      uint8_t sendbuffer[20];
+      s.getBytes(sendbuffer, 20);
+      char sendbuffersize = min(20, s.length());
+
+      Serial.print(F("\n* Sending -> \"")); Serial.print((char *)sendbuffer); Serial.println("\"");
+
+      // write the data
+      BTLEserial.write(sendbuffer, sendbuffersize);
+    }
+  }
+}
+
 void loop() {
   loop_clock_sync();
   loop_light_sensor();
+  loop_BTLESerial();
   Alarm.delay(1000);
 }
